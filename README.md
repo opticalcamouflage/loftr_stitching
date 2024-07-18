@@ -1,0 +1,2 @@
+compile 
+cmake -B build -DORT_STATIC=OFF -DUSE_DIST_ORT=OFF -DORT_ROOT="C:/Program Files/onnxruntime-win-x64-gpu-1.18.0" "-DCMAKE_TOOLCHAIN_FILE=C:/opensource projects/vcpkg/scripts/buildsystems/vcpkg.cmake" -G "Visual Studio 17 2022" -A x64

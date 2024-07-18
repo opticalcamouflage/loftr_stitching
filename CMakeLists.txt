@@ -6,6 +6,7 @@ set (CMAKE_CXX_STANDARD 17)
 add_executable(demo ./LoFTR.cpp
                     ./LoFTRApp.cpp
                     ./OrtSessionHandler.cpp
+                    ./BAAdjuster.cpp
 )
 
 set(ORT_ROOT "C:/Program Files/onnxruntime-win-x64-gpu-1.18.0")
@@ -43,3 +44,6 @@ else()
 endif()
 
 find_package(CUDAToolkit)
+
+find_package(Ceres REQUIRED)
+target_link_libraries(demo PRIVATE Ceres::ceres)

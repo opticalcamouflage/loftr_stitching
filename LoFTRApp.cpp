@@ -7,10 +7,20 @@
 
 #include "LoFTR.hpp"
 #include "Utility.hpp"
+#include "BAAdjuster.h"
 #include <utility>
 #include <opencv2/opencv.hpp>
 
+
+#include "opencv2/stitching/detail/camera.hpp"
+#include "opencv2/stitching/detail/matchers.hpp"
+#include "opencv2/stitching/detail/motion_estimators.hpp"
+#include "opencv2/stitching/detail/util.hpp"
+
+
+
 #include <iostream>
+#include <memory>
 #include <windows.h>
 
 static constexpr float CONFIDENCE_THRESHOLD = 0.1;
@@ -31,9 +41,9 @@ int main(int argc, char* argv[])
 
     // const std::string ONNX_MODEL_PATH = argv[1];
     // const std::vector<std::string> IMAGE_PATHS = {argv[2], argv[3]};
-    const std::string ONNX_MODEL_PATH = "./loftr.onnx";
-    const std::vector<std::string> IMAGE_PATHS = {"./1.jpg",
-                                                     "./2.jpg"};
+    const std::string ONNX_MODEL_PATH = "C:/opensource projects/loftr_stitching/assets/loftr.onnx";
+    const std::vector<std::string> IMAGE_PATHS = {"C:/opensource projects/loftr_stitching/assets/1.jpg",
+                                                     "C:/opensource projects/loftr_stitching/assets/2.jpg"};
 
     std::vector<cv::Mat> images;
     std::vector<cv::Mat> grays;
@@ -76,14 +86,140 @@ int main(int argc, char* argv[])
         match.trainIdx = i;
         matches.emplace_back(std::move(match));
     }
+    
+
+
+
+
+
+    // std::vector<cv::detail::ImageFeatures> features;
+    // cv::detail::ImageFeatures features_query, features_ref;
+    // features_query.img_idx = 0; // 图像索引
+    // features_query.keypoints = queryKpts; // 特征点
+    // features_query.descriptors = cv::UMat(); // 空描述符
+    // features_ref.img_idx = 1; // 图像索引
+    // features_ref.keypoints = refKpts; // 特征点
+    // features_ref.descriptors = cv::UMat(); // 空描述符
+    // features.push_back(features_query);
+    // features.push_back(features_ref);
+    // cv::detail::MatchesInfo matches_info;
+    // matches_info.src_img_idx = 0; // 源图像索引
+    // matches_info.dst_img_idx = 1; // 目标图像索引
+    // matches_info.matches = matches; // 复制匹配信息
+    // matches_info.num_inliers = matches.size(); // 假设所有匹配都是内点
+    // matches_info.confidence = 1.0; // 设置一个默认的高信任度
+    // for (const auto& match : matches) {
+    //     matches_info.inliers_mask.push_back(1); // 假设所有匹配都是内点
+    // }
+    // std::vector<cv::detail::MatchesInfo> pairwise_matches;
+    // pairwise_matches.push_back(matches_info);
+    // pairwise_matches.push_back(cv::detail::MatchesInfo());
+    // std::vector<cv::detail::CameraParams> cameras;
+    // std::unique_ptr<cv::detail::HomographyBasedEstimator> estimator;
+    // estimator = std::make_unique<cv::detail::HomographyBasedEstimator>();
+    // estimator->operator()(features, pairwise_matches, cameras);
+    // for (size_t i = 0; i < cameras.size(); ++i)
+    // {
+    //     cv::Mat R;
+    //     cameras[i].R.convertTo(R, CV_32F);
+    //     cameras[i].R = R;        
+    // }
+    // std::cout << cameras.size() << std::endl;
+
+
+
+
+
+
+
+
+
+
+
+    std::vector<cv::Point2f> obj;
+    std::vector<cv::Point2f> scene;
+    for( size_t i = 0; i < matches.size(); i++ )
+    {
+        obj.push_back( queryKpts[ matches[i].queryIdx ].pt );
+        scene.push_back( refKpts[ matches[i].trainIdx ].pt );
+    }
+    cv::Mat H = cv::findHomography( obj, scene, 0 );
+
+	std::vector<std::vector<cv::KeyPoint>> keypoints = {queryKpts, refKpts};
+    BAAdjuster adjuster(images[0].size(), keypoints);
+    adjuster.adjust(H);
+
+    std::vector<cv::Point2f> obj_corners(4);
+    obj_corners[0] = cv::Point2f(0, 0);
+    obj_corners[1] = cv::Point2f( (float)images[0].cols, 0 );
+    obj_corners[2] = cv::Point2f( (float)images[0].cols, (float)images[0].rows );
+    obj_corners[3] = cv::Point2f( 0, (float)images[0].rows );
+    std::vector<cv::Point2f> scene_corners(4);
+    cv::perspectiveTransform( obj_corners, scene_corners, H);
+
+    // std::vector<cv::Mat> R, t, n;
+    // cv::Mat K = (cv::Mat_<double>(3, 3) << 2888.0, 0.0, 2000.0,
+    //                                         0.0, 2888.0, 1500.0,
+    //                                         0.0, 0.0, 1.0);
+    // int solutions = cv::decomposeHomographyMat(H, K, R, t, n);
+    // cv::Mat R1 = R[0];
+    // cv::Mat t1 = t[0];
+    // cv::Mat Rt(3, 4, R1.type());
+    // R1.copyTo(Rt(cv::Rect(0, 0, 3, 3)));
+    // t1.copyTo(Rt(cv::Rect(3, 0, 1, 3)));
+    // cv::Mat pt = (cv::Mat_<double>(3, 1) << obj_corners[1].x, obj_corners[1].y, 1.0);
+    // cv::Mat transformed_pt = K * Rt * pt;
+    // double x = transformed_pt.at<double>(0, 0) / transformed_pt.at<double>(2, 0);
+    // double y = transformed_pt.at<double>(1, 0) / transformed_pt.at<double>(2, 0);
+    // std::cout << cv::Point2f(x, y) << std::endl;
+
+
+
+
+
+
+
+
+    for (auto it = scene_corners.begin(); it !=scene_corners.end(); it++)
+    {
+        std::cout<< *it <<std ::endl;
+    }
+     std::vector<cv::Point2f> all_corners = {
+        cv::Point2f(0, 0),
+        cv::Point2f((float)images[1].cols, 0),
+        cv::Point2f((float)images[1].cols, (float)images[1].rows),
+        cv::Point2f(0, (float)images[1].rows)
+    };
+    all_corners.insert(all_corners.end(), scene_corners.begin(), scene_corners.end());
+    float min_x = all_corners[0].x;
+    float max_x = all_corners[0].x;
+    float min_y = all_corners[0].y;
+    float max_y = all_corners[0].y;
+    for (const auto& pt : all_corners) {
+        if (pt.x < min_x) min_x = pt.x;
+        if (pt.x > max_x) max_x = pt.x;
+        if (pt.y < min_y) min_y = pt.y;
+        if (pt.y > max_y) max_y = pt.y;
+    }
+    cv::Size stitched_image_size((int)std::ceil(max_x - min_x), (int)std::ceil(max_y - min_y));
+    cv::Mat stitched_image = cv::Mat::zeros(stitched_image_size, images[1].type());
+    cv::Mat roi(stitched_image, cv::Rect(-min_x, -min_y, images[1].cols, images[1].rows));
+    images[1].copyTo(roi);
+    warpPerspective(images[0], stitched_image, H, stitched_image_size,cv::INTER_LINEAR, cv::BORDER_TRANSPARENT);
+
+
     cv::Mat matchesImage;
     cv::drawMatches(images[0], queryKpts, images[1], refKpts, matches, matchesImage, cv::Scalar::all(-1),
                     cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-    cv::imwrite("loftr.jpg", matchesImage);
-    cv::imshow("loftr", matchesImage);
+
+
+    cv::imwrite("loftr.jpg", stitched_image);
+    cv::imshow("loftr", stitched_image );
     cv::waitKey();
 
     return EXIT_SUCCESS;
+
+
 }
 
 namespace
